@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<?xml-stylesheet href="file:///usr/share/nmap/nmap.xsl" type="text/xsl"?>
+<nmaprun scanner="nmap" args="nmap -sT -sV -p 22,80,443 -oX - 192.168.1.1" start="1792173600" startstr="Fri Oct 16 20:00:00 2026" version="7.95" xmloutputversion="1.05">
+<scaninfo type="connect" protocol="tcp" numservices="3" services="22,80,443"/>
+<verbose level="0"/>
+<debugging level="0"/>
+<host starttime="1792173600" endtime="1792173612">
+<status state="up" reason="syn-ack" reason_ttl="0"/>
+<address addr="192.168.1.1" addrtype="ipv4"/>
+<hostnames>
+<hostname name="router.lan" type="PTR"/>
+</hostnames>
+<ports>
+<port protocol="tcp" portid="22">
+<state state="open" reason="syn-ack" reason_ttl="0"/>
+<service name="ssh" product="OpenSSH" version="9.6p1 Ubuntu 3ubuntu13.5" extrainfo="Ubuntu Linux; protocol 2.0" ostype="Linux" method="probed" conf="10">
+<cpe>cpe:/a:openbsd:openssh:9.6p1</cpe>
+<cpe>cpe:/o:linux:linux_kernel</cpe>
+</service>
+</port>
+<port protocol="tcp" portid="80">
+<state state="open" reason="syn-ack" reason_ttl="0"/>
+<service name="http" product="nginx" version="1.24.0" extrainfo="Ubuntu" ostype="Linux" method="probed" conf="10">
+<cpe>cpe:/a:igor_sysoev:nginx:1.24.0</cpe>
+</service>
+</port>
+<port protocol="tcp" portid="443">
+<state state="closed" reason="conn-refused" reason_ttl="0"/>
+<service name="https" method="table" conf="3"/>
+</port>
+</ports>
+<times srtt="512" rttvar="210" to="100000"/>
+</host>
+<runstats>
+<finished time="1792173612" timestr="Fri Oct 16 20:00:12 2026" summary="Nmap done at Fri Oct 16 20:00:12 2026; 1 IP address (1 host up) scanned in 12.34 seconds" elapsed="12.34" exit="success"/>
+<hosts up="1" down="0" total="1"/>
+</runstats>
+</nmaprun>
