@@ -140,6 +140,21 @@ def test_hosts_without_port_elements_have_no_ports(edge):
     assert filtered_host.ports == []
 
 
+def test_extraports_summaries(edge):
+    first, down_host, filtered_host = edge.hosts
+
+    assert [(e.state, e.count) for e in first.extra_ports] == [("closed", 997)]
+    assert down_host.extra_ports == []
+    assert [(e.state, e.count) for e in filtered_host.extra_ports] == [("filtered", 1001)]
+
+
+def test_extraports_are_not_listed_as_ports(edge):
+    first = edge.hosts[0]
+
+    assert len(first.ports) == 4
+    assert len(first.ports) + first.extra_ports[0].count == 1001
+
+
 @pytest.mark.parametrize("xml_text", ["", "not xml at all", "<nmaprun><host>"])
 def test_invalid_xml_raises_parse_error(xml_text):
     with pytest.raises(NmapParseError, match="Invalid XML"):
