@@ -1,11 +1,12 @@
 import shutil
 import subprocess
 
-from app.core.exceptions import NmapExecutionError, NmapNotFoundError
+from app.core.exceptions import NmapExecutionError, NmapNotFoundError, ScanTimeoutError
 from app.nmap.command_builder import NMAP_EXECUTABLE
 
 DEFAULT_TIMEOUT_SECONDS = 600
 MAX_STDERR_CHARS = 500
+TERMINATE_GRACE_SECONDS = 5
 
 
 def find_nmap() -> str:
@@ -38,11 +39,28 @@ class NmapRunner:
             errors="replace",
             shell=False,
         )
-        stdout, stderr = self._process.communicate()
+        try:
+            stdout, stderr = self._process.communicate(timeout=self._timeout)
+        except subprocess.TimeoutExpired as error:
+            self._stop_process()
+            raise ScanTimeoutError(f"Scan exceeded the time limit of {self._timeout} seconds") from error
 
         if self._process.returncode != 0:
             raise NmapExecutionError(self._process.returncode, _shorten(stderr))
         return stdout
+
+    def _stop_process(self) -> None:
+        process = self._process
+        if process is None or process.poll() is not None:
+            return
+
+        process.terminate()
+        try:
+            process.wait(timeout=TERMINATE_GRACE_SECONDS)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+        process.communicate()
 
 
 def _shorten(text: str) -> str:

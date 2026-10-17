@@ -1,9 +1,11 @@
+import signal
 import subprocess
 import sys
+import time
 
 import pytest
 
-from app.core.exceptions import NmapExecutionError, NmapNotFoundError
+from app.core.exceptions import NmapExecutionError, NmapNotFoundError, ScanTimeoutError
 from app.nmap import runner
 from app.nmap.runner import NmapRunner
 
@@ -108,3 +110,30 @@ def test_warnings_on_stderr_do_not_fail_a_successful_scan(python_as_nmap):
     code = "import sys; sys.stderr.write('Warning: something minor'); print('<nmaprun/>')"
 
     assert NmapRunner(python_command(code)).run().strip() == "<nmaprun/>"
+
+
+def test_scan_longer_than_timeout_is_stopped(python_as_nmap):
+    nmap_runner = NmapRunner(python_command("import time; time.sleep(30)"), timeout=0.5)
+
+    started = time.monotonic()
+    with pytest.raises(ScanTimeoutError, match="time limit of 0.5 seconds"):
+        nmap_runner.run()
+
+    assert time.monotonic() - started < 10
+    assert nmap_runner._process.poll() is not None
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="SIGTERM cannot be ignored on Windows")
+def test_process_ignoring_terminate_is_killed(python_as_nmap, monkeypatch):
+    monkeypatch.setattr(runner, "TERMINATE_GRACE_SECONDS", 0.5)
+    code = "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(30)"
+    nmap_runner = NmapRunner(python_command(code), timeout=1.0)
+
+    with pytest.raises(ScanTimeoutError):
+        nmap_runner.run()
+
+    assert nmap_runner._process.returncode == -signal.SIGKILL
+
+
+def test_fast_scan_finishes_before_timeout(python_as_nmap):
+    assert NmapRunner(python_command("print('done')"), timeout=10).run().strip() == "done"
