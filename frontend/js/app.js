@@ -93,9 +93,26 @@ function showFormError(message) {
   $("form-error").hidden = false;
 }
 
+const FIELD_ERRORS = { target: "target-error", ports: "ports-error" };
+
+function showFieldError(field, message) {
+  const errorElement = $(FIELD_ERRORS[field]);
+  errorElement.textContent = message;
+  errorElement.hidden = false;
+  $(field).setAttribute("aria-invalid", "true");
+  $(field).focus();
+}
+
+function clearFieldError(field) {
+  $(FIELD_ERRORS[field]).hidden = true;
+  $(FIELD_ERRORS[field]).textContent = "";
+  $(field).removeAttribute("aria-invalid");
+}
+
 function clearErrors() {
   $("form-error").hidden = true;
   $("form-error").textContent = "";
+  for (const field of Object.keys(FIELD_ERRORS)) clearFieldError(field);
 }
 
 async function submitScan(event) {
@@ -109,7 +126,9 @@ async function submitScan(event) {
     await showScan(created.id);
   } catch (error) {
     if (!(error instanceof ApiError)) throw error;
-    showFormError(translateRequestError(error).message);
+    const { field, message } = translateRequestError(error);
+    if (field in FIELD_ERRORS) showFieldError(field, message);
+    else showFormError(message);
   } finally {
     run.disabled = false;
     $("run-label").textContent = "Uruchom skan";
@@ -149,6 +168,9 @@ async function init() {
   scanForm = createScanForm($("scan-form"), options);
   refreshHistory();
   $("scan-form").addEventListener("submit", submitScan);
+  for (const field of Object.keys(FIELD_ERRORS)) {
+    $(field).addEventListener("input", () => clearFieldError(field));
+  }
 }
 
 init();
