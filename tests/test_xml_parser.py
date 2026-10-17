@@ -65,6 +65,29 @@ def test_ipv6_host_address(load_fixture):
     assert str(parse_scan(xml_text).hosts[0].ip) == "2001:db8::1"
 
 
+def test_hostnames_are_collected(typical, edge):
+    assert typical.hosts[0].hostnames == ["router.lan"]
+    assert edge.hosts[0].hostnames == ["router.lan"]
+
+
+def test_missing_or_empty_hostnames_give_empty_list(edge):
+    _, down_host, empty_hostnames_host = edge.hosts
+
+    assert down_host.hostnames == []
+    assert empty_hostnames_host.hostnames == []
+
+
+def test_duplicate_hostnames_are_removed_keeping_order(load_fixture):
+    xml_text = load_fixture("scan_typical.xml").replace(
+        '<hostname name="router.lan" type="PTR"/>',
+        '<hostname name="gateway" type="user"/>'
+        '<hostname name="router.lan" type="PTR"/>'
+        '<hostname name="gateway" type="PTR"/>',
+    )
+
+    assert parse_scan(xml_text).hosts[0].hostnames == ["gateway", "router.lan"]
+
+
 @pytest.mark.parametrize("xml_text", ["", "not xml at all", "<nmaprun><host>"])
 def test_invalid_xml_raises_parse_error(xml_text):
     with pytest.raises(NmapParseError, match="Invalid XML"):

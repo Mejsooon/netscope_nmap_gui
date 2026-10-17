@@ -58,7 +58,13 @@ def _parse_host(host: Element) -> HostResult:
         ip=ip_element.get("addr") if ip_element is not None else None,
         mac=mac_element.get("addr") if mac_element is not None else None,
         mac_vendor=mac_element.get("vendor") if mac_element is not None else None,
+        hostnames=_parse_hostnames(host),
     )
+
+
+def _parse_hostnames(host: Element) -> list[str]:
+    names = [hostname.get("name") for hostname in host.findall("hostnames/hostname")]
+    return list(dict.fromkeys(name for name in names if name))
 
 
 def _attr(element: Element, path: str, name: str) -> str | None:
