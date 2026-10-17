@@ -101,6 +101,24 @@ async function submitScan(event) {
 }
 
 const handlers = {
+  async onCancel(id) {
+    const button = document.querySelector("#result .button--danger");
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Anulowanie…";
+    }
+    try {
+      await api.cancelScan(id);
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 409) {
+        showFormError("Nie udało się anulować skanu.");
+      }
+    }
+    if (id === current.id) {
+      stopTimers();
+      await refreshCurrent();
+    }
+  },
   onReuse(request) {
     scanForm.fill(request);
     $("target").focus();

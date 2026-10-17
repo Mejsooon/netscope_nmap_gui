@@ -90,3 +90,31 @@ def test_run_button_is_disabled_while_the_request_is_sent(page, live_app):
     expect(page.locator("#run")).to_be_disabled()
     expect(page.locator("#run-label")).to_have_text("Uruchamianie…")
     expect(page.locator("#run")).to_be_enabled(timeout=5000)
+
+
+def test_cancel_stops_a_running_scan(page, make_live_app):
+    app = make_live_app(FakeRunnerFactory(block=True))
+    page.goto(app.url)
+    start_scan(page)
+    expect(page.locator("#result [data-status]")).to_have_text("w toku")
+
+    page.get_by_role("button", name="Anuluj skan").click()
+
+    expect(page.locator("#result [data-status]")).to_have_text("anulowany")
+    expect(page.locator("#result")).to_contain_text("Skan został anulowany")
+    assert app.factory.runners[0].cancelled.is_set()
+
+
+def test_cancel_of_a_scan_that_just_finished_is_harmless(page, make_live_app):
+    app = make_live_app(FakeRunnerFactory(block=True))
+    page.goto(app.url)
+    start_scan(page)
+    expect(page.get_by_role("button", name="Anuluj skan")).to_be_visible()
+    page.route("**/scans/*", lambda route: route.continue_() if route.request.method != "DELETE"
+               else (app.factory.runners[0].release(), page.wait_for_timeout(300), route.continue_()))
+    page.browser_errors.allow("status of 409")
+
+    page.get_by_role("button", name="Anuluj skan").click()
+
+    expect(page.locator("#result [data-status]")).to_have_text("zakończony")
+    expect(page.locator("#form-error")).to_be_hidden()
