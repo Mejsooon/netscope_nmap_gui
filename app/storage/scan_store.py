@@ -29,7 +29,7 @@ class ScanStore:
 
     def all(self) -> list[ScanJob]:
         with self._lock:
-            return sorted(self._jobs.values(), key=lambda job: job.created_at, reverse=True)
+            return list(reversed(self._jobs.values()))
 
     def _get(self, scan_id: str) -> ScanJob:
         try:

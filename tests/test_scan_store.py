@@ -71,11 +71,18 @@ def test_update_of_unknown_id_raises_not_found(store):
         store.update("f" * 32, status="running")
 
 
-def test_all_returns_newest_first(store):
+def test_all_returns_most_recently_added_first(store):
     for number in [1, 3, 2]:
         store.add(make_job(number))
 
-    assert [job.id for job in store.all()] == [f"{n:032x}" for n in (3, 2, 1)]
+    assert [job.id for job in store.all()] == [f"{n:032x}" for n in (2, 3, 1)]
+
+
+def test_order_does_not_depend_on_equal_timestamps(store):
+    for number in range(5):
+        store.add(make_job(number, created_at=NOW))
+
+    assert [job.id for job in store.all()] == [f"{n:032x}" for n in (4, 3, 2, 1, 0)]
 
 
 def test_concurrent_adds_lose_nothing(store):
