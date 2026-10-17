@@ -1,3 +1,6 @@
 defusedxml>=0.7.1
 pydantic>=2.0
+fastapi>=0.143
+uvicorn>=0.54
+httpx2>=2.13
 pytest>=8.0
