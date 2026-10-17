@@ -6,12 +6,22 @@ from pydantic import BaseModel, ConfigDict, Field, IPvAnyAddress, model_validato
 Protocol = Literal["tcp", "udp", "sctp", "ip"]
 PortState = Literal["open", "closed", "filtered", "unfiltered", "open|filtered", "closed|filtered"]
 HostState = Literal["up", "down", "unknown", "skipped"]
+ScanType = Literal["connect", "syn", "udp", "ping"]
 
 MAC_PATTERN = r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$"
 
 
 class NetScopeModel(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
+
+
+class ScanRequest(NetScopeModel):
+    target: str = Field(min_length=1, max_length=253)
+    scan_type: ScanType = "connect"
+    ports: str | None = Field(default=None, min_length=1, max_length=200)
+    service_detection: bool = False
+    os_detection: bool = False
+    timing: int = Field(default=3, ge=0, le=5)
 
 
 class PortResult(NetScopeModel):
