@@ -1,3 +1,4 @@
+from app.core.exceptions import InsufficientPrivilegesError
 from app.nmap.options_catalog import (
     OS_DETECTION,
     SCAN_TYPES,
@@ -8,14 +9,27 @@ from app.nmap.options_catalog import (
 )
 from app.schemas.scan import ScanRequest
 from app.security.port_validator import validate_ports
+from app.security.privileges import has_root_privileges
 from app.security.target_validator import validate_target
 
 NMAP_EXECUTABLE = "nmap"
 
+ROOT_ALTERNATIVES = {
+    "-sS": "use the TCP connect scan (-sT) instead",
+    "-sU": "UDP scanning is not possible without root",
+    "-O": "turn off OS detection",
+}
+DEFAULT_ROOT_HINT = "run NetScope as root/administrator"
 
-def build_command(request: ScanRequest) -> list[str]:
+
+def build_command(request: ScanRequest, *, is_root: bool | None = None) -> list[str]:
     target = validate_target(request.target)
     options = _selected_options(request)
+
+    if is_root is None:
+        is_root = has_root_privileges()
+    if not is_root:
+        _ensure_no_root_options(options)
 
     command = [NMAP_EXECUTABLE, *(option.flag for option in options)]
     if request.ports is not None:
@@ -32,3 +46,13 @@ def _selected_options(request: ScanRequest) -> list[NmapOption]:
         options.append(OS_DETECTION)
     options.append(TIMING_TEMPLATES[request.timing])
     return options
+
+
+def _ensure_no_root_options(options: list[NmapOption]) -> None:
+    root_options = [option for option in options if option.requires_root]
+    if not root_options:
+        return
+
+    hints = "; ".join(f"{option.flag}: {ROOT_ALTERNATIVES.get(option.flag, DEFAULT_ROOT_HINT)}" for option in root_options)
+    flags = ", ".join(option.flag for option in root_options)
+    raise InsufficientPrivilegesError(f"{flags} require root/administrator privileges ({hints})")
