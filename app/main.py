@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.routes import health
+from app.api.routes import health, options
 from app.services.scan_manager import ScanManager
 
 
@@ -18,6 +18,7 @@ def create_app(scan_manager: ScanManager | None = None) -> FastAPI:
     app = FastAPI(title="NetScope", version="0.1.0", lifespan=lifespan)
     app.state.scan_manager = manager
     app.include_router(health.router)
+    app.include_router(options.router)
     return app
 
 
