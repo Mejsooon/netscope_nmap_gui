@@ -2,6 +2,8 @@ import ipaddress
 
 from app.core.exceptions import InvalidTargetError
 
+MAX_NETWORK_ADDRESSES = 65_536
+
 
 def validate_target(target: str) -> str:
     if target.startswith("-"):
@@ -10,6 +12,12 @@ def validate_target(target: str) -> str:
     network = _parse_network(target)
     if network is None:
         raise InvalidTargetError(f"Not a valid IP address or network: {target!r}")
+
+    if network.num_addresses > MAX_NETWORK_ADDRESSES:
+        raise InvalidTargetError(
+            f"Network {network} has {network.num_addresses} addresses, "
+            f"the limit is {MAX_NETWORK_ADDRESSES} (an IPv4 /16)"
+        )
 
     if "/" in target:
         return str(network)

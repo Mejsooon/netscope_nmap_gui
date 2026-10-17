@@ -8,7 +8,7 @@ from app.security.target_validator import validate_target
     "target, expected",
     [
         ("192.168.1.1", "192.168.1.1"),
-        ("10.0.0.0/8", "10.0.0.0/8"),
+        ("10.0.0.0/24", "10.0.0.0/24"),
         ("2001:db8::1", "2001:db8::1"),
         ("2001:db8::/120", "2001:db8::/120"),
     ],
@@ -34,4 +34,15 @@ def test_target_starting_with_dash_is_rejected(target):
 @pytest.mark.parametrize("target", ["999.1.1.1", "192.168.1.1/33", "192.168.1.1 ", ""])
 def test_invalid_addresses_are_rejected(target):
     with pytest.raises(InvalidTargetError):
+        validate_target(target)
+
+
+@pytest.mark.parametrize("target", ["10.0.0.0/16", "2001:db8::/112"])
+def test_network_at_size_limit_is_accepted(target):
+    assert validate_target(target) == target
+
+
+@pytest.mark.parametrize("target", ["10.0.0.0/15", "0.0.0.0/0", "2001:db8::/64"])
+def test_too_large_network_is_rejected(target):
+    with pytest.raises(InvalidTargetError, match="the limit is 65536"):
         validate_target(target)
