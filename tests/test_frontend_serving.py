@@ -60,3 +60,19 @@ def test_page_loads_nothing_from_other_origins(api):
         assert source not in html.replace('href="https://nmap.org/download"', "")
     assert "url(http" not in css
     assert "@import" not in css
+
+
+@pytest.mark.parametrize("module", ["app.js", "api.js", "dom.js", "messages.js"])
+def test_javascript_modules_are_served(api, module):
+    response = api.client.get(f"/js/{module}")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(("text/javascript", "application/javascript"))
+
+
+@pytest.mark.parametrize("module", ["app.js", "api.js", "dom.js", "messages.js"])
+def test_javascript_never_writes_html_strings(api, module):
+    source = api.client.get(f"/js/{module}").text
+
+    for forbidden in ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "eval(", "new Function"):
+        assert forbidden not in source
