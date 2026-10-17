@@ -9,7 +9,7 @@ from app.schemas.scan import ScanRequest
 def test_default_request():
     command = build_command(ScanRequest(target="192.168.1.1"))
 
-    assert command == ["nmap", "-sT", "-T3", "-oX", "-", "192.168.1.1"]
+    assert command == ["nmap", "-sT", "-T3", "-oX", "-", "--", "192.168.1.1"]
 
 
 def test_full_request():
@@ -22,14 +22,14 @@ def test_full_request():
     )
 
     assert build_command(request) == [
-        "nmap", "-sT", "-sV", "-T4", "-p", "22,80,443", "-oX", "-", "192.168.1.0/24",
+        "nmap", "-sT", "-sV", "-T4", "-p", "22,80,443", "-oX", "-", "--", "192.168.1.0/24",
     ]
 
 
 def test_ping_scan():
     command = build_command(ScanRequest(target="10.0.0.0/24", scan_type="ping"))
 
-    assert command == ["nmap", "-sn", "-T3", "-oX", "-", "10.0.0.0/24"]
+    assert command == ["nmap", "-sn", "-T3", "-oX", "-", "--", "10.0.0.0/24"]
 
 
 def test_target_is_normalized_by_validator():
@@ -99,3 +99,11 @@ def test_root_option_without_custom_hint_gets_default_hint(monkeypatch):
 
     with pytest.raises(InsufficientPrivilegesError, match="run NetScope as root/administrator"):
         build_command(ScanRequest(target="192.168.1.1", os_detection=True), is_root=False)
+
+
+def test_target_is_the_only_argument_after_end_of_options():
+    command = build_command(ScanRequest(target="192.168.1.1", ports="22", service_detection=True))
+    separator = command.index("--")
+
+    assert command[separator + 1:] == ["192.168.1.1"]
+    assert all(argument.startswith("-") or argument in {"nmap", "22"} for argument in command[:separator])

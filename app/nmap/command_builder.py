@@ -13,6 +13,7 @@ from app.security.privileges import has_root_privileges
 from app.security.target_validator import validate_target
 
 NMAP_EXECUTABLE = "nmap"
+END_OF_OPTIONS = "--"
 
 ROOT_ALTERNATIVES = {
     "-sS": "use the TCP connect scan (-sT) instead",
@@ -34,7 +35,7 @@ def build_command(request: ScanRequest, *, is_root: bool | None = None) -> list[
     command = [NMAP_EXECUTABLE, *(option.flag for option in options)]
     if request.ports is not None:
         command += ["-p", validate_ports(request.ports)]
-    command += [*XML_OUTPUT_ARGS, target]
+    command += [*XML_OUTPUT_ARGS, END_OF_OPTIONS, target]
     return command
 
 
