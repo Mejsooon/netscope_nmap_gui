@@ -3,7 +3,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.routes import health, options
+from app.api.errors import register_error_handlers
+from app.api.routes import health, options, scans
 from app.services.scan_manager import ScanManager
 
 
@@ -19,6 +20,8 @@ def create_app(scan_manager: ScanManager | None = None) -> FastAPI:
     app.state.scan_manager = manager
     app.include_router(health.router)
     app.include_router(options.router)
+    app.include_router(scans.router)
+    register_error_handlers(app)
     return app
 
 
