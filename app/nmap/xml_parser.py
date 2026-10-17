@@ -1,0 +1,107 @@
+from datetime import datetime, timezone
+from xml.etree.ElementTree import Element, ParseError
+
+from defusedxml import DefusedXmlException
+from defusedxml.ElementTree import fromstring
+from pydantic import ValidationError
+
+from app.core.exceptions import NmapParseError
+from app.schemas.scan import ExtraPortsResult, HostResult, PortResult, ScanResult
+
+
+def parse_scan(xml_text: str) -> ScanResult:
+    root = _parse_root(xml_text)
+    try:
+        hosts = [_parse_host(host) for host in root.findall("host")]
+        return _build_scan_result(root, hosts)
+    except (ValidationError, ValueError) as error:
+        raise NmapParseError(f"Unexpected nmap XML structure: {error}") from error
+
+
+def _parse_root(xml_text: str) -> Element:
+    try:
+        root = fromstring(xml_text)
+    except DefusedXmlException as error:
+        raise NmapParseError("XML contains forbidden constructs (entities or external references)") from error
+    except ParseError as error:
+        raise NmapParseError(f"Invalid XML: {error}") from error
+
+    if root.tag != "nmaprun":
+        raise NmapParseError(f"Expected <nmaprun> root element, got <{root.tag}>")
+    return root
+
+
+def _build_scan_result(root: Element, hosts: list[HostResult]) -> ScanResult:
+    hosts_up, hosts_down, hosts_total = _host_counts(root, hosts)
+    return ScanResult(
+        nmap_version=root.get("version"),
+        args=root.get("args"),
+        started_at=_timestamp(root.get("start")),
+        finished_at=_timestamp(_attr(root, "runstats/finished", "time")),
+        elapsed_seconds=_attr(root, "runstats/finished", "elapsed"),
+        hosts_up=hosts_up,
+        hosts_down=hosts_down,
+        hosts_total=hosts_total,
+        hosts=hosts,
+    )
+
+
+def _host_counts(root: Element, hosts: list[HostResult]) -> tuple:
+    counts = root.find("runstats/hosts")
+    if counts is not None:
+        return counts.get("up"), counts.get("down"), counts.get("total")
+
+    hosts_up = sum(1 for host in hosts if host.state == "up")
+    return hosts_up, len(hosts) - hosts_up, len(hosts)
+
+
+def _parse_host(host: Element) -> HostResult:
+    addresses = {address.get("addrtype"): address for address in host.findall("address")}
+
+    ip_element = addresses.get("ipv4")
+    if ip_element is None:
+        ip_element = addresses.get("ipv6")
+    mac_element = addresses.get("mac")
+
+    return HostResult(
+        state=_attr(host, "status", "state"),
+        ip=ip_element.get("addr") if ip_element is not None else None,
+        mac=mac_element.get("addr") if mac_element is not None else None,
+        mac_vendor=mac_element.get("vendor") if mac_element is not None else None,
+        hostnames=_parse_hostnames(host),
+        ports=[_parse_port(port) for port in host.findall("ports/port")],
+        extra_ports=[_parse_extra_ports(extra) for extra in host.findall("ports/extraports")],
+    )
+
+
+def _parse_port(port: Element) -> PortResult:
+    return PortResult(
+        port=port.get("portid"),
+        protocol=port.get("protocol"),
+        state=_attr(port, "state", "state"),
+        reason=_attr(port, "state", "reason"),
+        service_name=_attr(port, "service", "name"),
+        product=_attr(port, "service", "product"),
+        version=_attr(port, "service", "version"),
+        extra_info=_attr(port, "service", "extrainfo"),
+    )
+
+
+def _parse_extra_ports(extra: Element) -> ExtraPortsResult:
+    return ExtraPortsResult(state=extra.get("state"), count=extra.get("count"))
+
+
+def _parse_hostnames(host: Element) -> list[str]:
+    names = [hostname.get("name") for hostname in host.findall("hostnames/hostname")]
+    return list(dict.fromkeys(name for name in names if name))
+
+
+def _attr(element: Element, path: str, name: str) -> str | None:
+    child = element.find(path)
+    return child.get(name) if child is not None else None
+
+
+def _timestamp(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    return datetime.fromtimestamp(int(value), tz=timezone.utc)
