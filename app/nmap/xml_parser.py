@@ -6,13 +6,14 @@ from defusedxml.ElementTree import fromstring
 from pydantic import ValidationError
 
 from app.core.exceptions import NmapParseError
-from app.schemas.scan import ScanResult
+from app.schemas.scan import HostResult, ScanResult
 
 
 def parse_scan(xml_text: str) -> ScanResult:
     root = _parse_root(xml_text)
     try:
-        return _build_scan_result(root)
+        hosts = [_parse_host(host) for host in root.findall("host")]
+        return _build_scan_result(root, hosts)
     except (ValidationError, ValueError) as error:
         raise NmapParseError(f"Unexpected nmap XML structure: {error}") from error
 
@@ -30,7 +31,7 @@ def _parse_root(xml_text: str) -> Element:
     return root
 
 
-def _build_scan_result(root: Element) -> ScanResult:
+def _build_scan_result(root: Element, hosts: list[HostResult]) -> ScanResult:
     return ScanResult(
         nmap_version=root.get("version"),
         args=root.get("args"),
@@ -40,6 +41,23 @@ def _build_scan_result(root: Element) -> ScanResult:
         hosts_up=_attr(root, "runstats/hosts", "up"),
         hosts_down=_attr(root, "runstats/hosts", "down"),
         hosts_total=_attr(root, "runstats/hosts", "total"),
+        hosts=hosts,
+    )
+
+
+def _parse_host(host: Element) -> HostResult:
+    addresses = {address.get("addrtype"): address for address in host.findall("address")}
+
+    ip_element = addresses.get("ipv4")
+    if ip_element is None:
+        ip_element = addresses.get("ipv6")
+    mac_element = addresses.get("mac")
+
+    return HostResult(
+        state=_attr(host, "status", "state"),
+        ip=ip_element.get("addr") if ip_element is not None else None,
+        mac=mac_element.get("addr") if mac_element is not None else None,
+        mac_vendor=mac_element.get("vendor") if mac_element is not None else None,
     )
 
 

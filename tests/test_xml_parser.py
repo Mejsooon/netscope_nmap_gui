@@ -33,6 +33,38 @@ def test_edge_cases_host_counts(edge):
     assert (edge.hosts_up, edge.hosts_down, edge.hosts_total) == (2, 1, 3)
 
 
+def test_typical_host_status_and_address(typical):
+    host = typical.hosts[0]
+
+    assert len(typical.hosts) == 1
+    assert host.state == "up"
+    assert str(host.ip) == "192.168.1.1"
+    assert host.mac is None
+    assert host.mac_vendor is None
+
+
+def test_edge_cases_host_states_in_document_order(edge):
+    assert [host.state for host in edge.hosts] == ["up", "down", "up"]
+    assert [str(host.ip) for host in edge.hosts] == ["192.168.1.1", "192.168.1.2", "192.168.1.3"]
+
+
+def test_edge_cases_ipv4_and_mac_are_separated(edge):
+    first, _, third = edge.hosts
+
+    assert first.mac == "AA:BB:CC:11:22:33"
+    assert first.mac_vendor == "Example Networks"
+    assert third.mac == "AA:BB:CC:44:55:66"
+    assert third.mac_vendor is None
+
+
+def test_ipv6_host_address(load_fixture):
+    xml_text = load_fixture("scan_typical.xml").replace(
+        'addr="192.168.1.1" addrtype="ipv4"', 'addr="2001:db8::1" addrtype="ipv6"'
+    )
+
+    assert str(parse_scan(xml_text).hosts[0].ip) == "2001:db8::1"
+
+
 @pytest.mark.parametrize("xml_text", ["", "not xml at all", "<nmaprun><host>"])
 def test_invalid_xml_raises_parse_error(xml_text):
     with pytest.raises(NmapParseError, match="Invalid XML"):
