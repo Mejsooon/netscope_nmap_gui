@@ -10,7 +10,7 @@ Lokalna aplikacja (FastAPI + przeglądarka), która dodaje interaktywne GUI do n
 | Krok | Moduł | Status |
 |---|---|---|
 | 1 | Parser XML | gotowe |
-| 2 | Builder (allowlista + walidacja) | — |
+| 2 | Builder (allowlista + walidacja) | gotowe |
 | 3 | Runner (subprocess) | — |
 | 4 | API | — |
 | 5 | Frontend | — |
@@ -31,6 +31,23 @@ for host in result.hosts:
 
 `parse_scan()` zwraca model `ScanResult` (Pydantic) albo rzuca `NmapParseError`.
 XML jest parsowany przez `defusedxml`, więc ataki typu billion laughs i XXE są blokowane.
+
+## Builder komendy
+
+```python
+from app.nmap.command_builder import build_command
+from app.schemas.scan import ScanRequest
+
+request = ScanRequest(target="192.168.1.0/24", ports="22,80,443", service_detection=True)
+build_command(request)
+# ['nmap', '-sT', '-sV', '-T3', '-p', '22,80,443', '-oX', '-', '--', '192.168.1.0/24']
+```
+
+- klient wysyła **nazwy** opcji (`scan_type="syn"`), a nie flagi — flagi zna tylko `options_catalog.py` (allowlista)
+- cel: adres IP, sieć CIDR (maks. 65 536 adresów) albo hostname; nic, co zaczyna się od `-`
+- porty: `22`, `1-1000`, `22,80,443` w zakresie 1–65535
+- `-sS`, `-sU`, `-O` wymagają roota — bez niego `InsufficientPrivilegesError` z podpowiedzią
+- każdy błąd danych wejściowych to podklasa `InvalidScanRequestError`
 
 ## Uruchomienie testów
 
