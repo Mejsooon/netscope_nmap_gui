@@ -1,10 +1,11 @@
 import shutil
 import subprocess
 
-from app.core.exceptions import NmapNotFoundError
+from app.core.exceptions import NmapExecutionError, NmapNotFoundError
 from app.nmap.command_builder import NMAP_EXECUTABLE
 
 DEFAULT_TIMEOUT_SECONDS = 600
+MAX_STDERR_CHARS = 500
 
 
 def find_nmap() -> str:
@@ -37,5 +38,15 @@ class NmapRunner:
             errors="replace",
             shell=False,
         )
-        stdout, _stderr = self._process.communicate()
+        stdout, stderr = self._process.communicate()
+
+        if self._process.returncode != 0:
+            raise NmapExecutionError(self._process.returncode, _shorten(stderr))
         return stdout
+
+
+def _shorten(text: str) -> str:
+    text = text.strip()
+    if len(text) <= MAX_STDERR_CHARS:
+        return text
+    return text[:MAX_STDERR_CHARS] + "… (truncated)"

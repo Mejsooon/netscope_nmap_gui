@@ -3,7 +3,7 @@ import sys
 
 import pytest
 
-from app.core.exceptions import NmapNotFoundError
+from app.core.exceptions import NmapExecutionError, NmapNotFoundError
 from app.nmap import runner
 from app.nmap.runner import NmapRunner
 
@@ -82,3 +82,29 @@ def test_popen_is_called_without_shell_and_with_full_path(monkeypatch):
     assert arguments == ["/usr/bin/nmap", "-sT", "--", "192.168.1.1"]
     assert kwargs["shell"] is False
     assert kwargs["stdin"] is subprocess.DEVNULL
+
+
+def test_non_zero_exit_raises_execution_error(python_as_nmap):
+    code = "import sys; sys.stderr.write('Failed to resolve \"nosuchhost\".\\n'); sys.exit(1)"
+
+    with pytest.raises(NmapExecutionError) as excinfo:
+        NmapRunner(python_command(code)).run()
+
+    assert excinfo.value.returncode == 1
+    assert excinfo.value.stderr == 'Failed to resolve "nosuchhost".'
+
+
+def test_long_stderr_is_truncated(python_as_nmap):
+    code = "import sys; sys.stderr.write('x' * 10_000); sys.exit(2)"
+
+    with pytest.raises(NmapExecutionError) as excinfo:
+        NmapRunner(python_command(code)).run()
+
+    assert len(excinfo.value.stderr) == runner.MAX_STDERR_CHARS + len("… (truncated)")
+    assert excinfo.value.stderr.endswith("… (truncated)")
+
+
+def test_warnings_on_stderr_do_not_fail_a_successful_scan(python_as_nmap):
+    code = "import sys; sys.stderr.write('Warning: something minor'); print('<nmaprun/>')"
+
+    assert NmapRunner(python_command(code)).run().strip() == "<nmaprun/>"
