@@ -11,7 +11,7 @@ Lokalna aplikacja (FastAPI + przeglądarka), która dodaje interaktywne GUI do n
 |---|---|---|
 | 1 | Parser XML | gotowe |
 | 2 | Builder (allowlista + walidacja) | gotowe |
-| 3 | Runner (subprocess) | — |
+| 3 | Runner (subprocess) | gotowe |
 | 4 | API | — |
 | 5 | Frontend | — |
 | 6 | Reguły ostrzeżeń | — |
@@ -49,6 +49,23 @@ build_command(request)
 - `-sS`, `-sU`, `-O` wymagają roota — bez niego `InsufficientPrivilegesError` z podpowiedzią
 - każdy błąd danych wejściowych to podklasa `InvalidScanRequestError`
 
+## Uruchomienie skanu
+
+```python
+from app.schemas.scan import ScanRequest
+from app.services.scan_service import run_scan
+
+result = run_scan(ScanRequest(target="scanme.nmap.org", ports="22,80"), timeout=300)
+```
+
+`run_scan()` łączy builder, runner i parser. Runner (`app/nmap/runner.py`):
+
+- uruchamia nmapa przez `subprocess.Popen` z `shell=False` i pełną ścieżką z `shutil.which`
+- po przekroczeniu limitu czasu kończy proces (`terminate()`, a po 5 s `kill()`) → `ScanTimeoutError`
+- `NmapRunner.cancel()` z innego wątku przerywa skan → `ScanCancelledError`
+- kod wyjścia ≠ 0 → `NmapExecutionError` ze skróconym stderr
+- brak nmapa → `NmapNotFoundError`
+
 ## Uruchomienie testów
 
 ```bash
@@ -58,7 +75,14 @@ pip install -r requirements.txt
 pytest
 ```
 
-Testy nie wymagają nmapa ani dostępu do sieci — parser jest testowany na zapisanych wynikach w `tests/fixtures/`.
+Testy nie wymagają nmapa ani dostępu do sieci — parser jest testowany na zapisanych wynikach w `tests/fixtures/`,
+a runner na procesach Pythona udających nmapa.
+
+Testy integracyjne na prawdziwym nmapie (wymagają zainstalowanego nmapa i dostępu do sieci):
+
+```bash
+pytest -m integration
+```
 
 ## Zasady
 
