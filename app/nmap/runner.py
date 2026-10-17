@@ -1,7 +1,13 @@
 import shutil
 import subprocess
+import threading
 
-from app.core.exceptions import NmapExecutionError, NmapNotFoundError, ScanTimeoutError
+from app.core.exceptions import (
+    NmapExecutionError,
+    NmapNotFoundError,
+    ScanCancelledError,
+    ScanTimeoutError,
+)
 from app.nmap.command_builder import NMAP_EXECUTABLE
 
 DEFAULT_TIMEOUT_SECONDS = 600
@@ -23,44 +29,59 @@ class NmapRunner:
         self._command = list(command)
         self._timeout = timeout
         self._process: subprocess.Popen[str] | None = None
+        self._cancelled = threading.Event()
+        self._lock = threading.Lock()
 
     def run(self) -> str:
-        if self._process is not None:
-            raise RuntimeError("NmapRunner can run only once")
+        with self._lock:
+            if self._process is not None:
+                raise RuntimeError("NmapRunner can run only once")
+            if self._cancelled.is_set():
+                raise ScanCancelledError("Scan was cancelled before it started")
 
-        arguments = [find_nmap(), *self._command[1:]]
-        self._process = subprocess.Popen(
-            arguments,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            shell=False,
-        )
+            arguments = [find_nmap(), *self._command[1:]]
+            self._process = subprocess.Popen(
+                arguments,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                shell=False,
+            )
+
         try:
             stdout, stderr = self._process.communicate(timeout=self._timeout)
         except subprocess.TimeoutExpired as error:
-            self._stop_process()
+            _terminate(self._process)
+            self._process.communicate()
             raise ScanTimeoutError(f"Scan exceeded the time limit of {self._timeout} seconds") from error
 
+        if self._cancelled.is_set():
+            raise ScanCancelledError("Scan was cancelled")
         if self._process.returncode != 0:
             raise NmapExecutionError(self._process.returncode, _shorten(stderr))
         return stdout
 
-    def _stop_process(self) -> None:
-        process = self._process
-        if process is None or process.poll() is not None:
-            return
+    def cancel(self) -> None:
+        self._cancelled.set()
+        with self._lock:
+            process = self._process
+        if process is not None:
+            _terminate(process)
 
-        process.terminate()
-        try:
-            process.wait(timeout=TERMINATE_GRACE_SECONDS)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
-        process.communicate()
+
+def _terminate(process: subprocess.Popen[str]) -> None:
+    if process.poll() is not None:
+        return
+
+    process.terminate()
+    try:
+        process.wait(timeout=TERMINATE_GRACE_SECONDS)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
 
 
 def _shorten(text: str) -> str:

@@ -2,10 +2,11 @@ import signal
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from app.core.exceptions import NmapExecutionError, NmapNotFoundError, ScanTimeoutError
+from app.core.exceptions import NmapExecutionError, NmapNotFoundError, ScanCancelledError, ScanTimeoutError
 from app.nmap import runner
 from app.nmap.runner import NmapRunner
 
@@ -137,3 +138,44 @@ def test_process_ignoring_terminate_is_killed(python_as_nmap, monkeypatch):
 
 def test_fast_scan_finishes_before_timeout(python_as_nmap):
     assert NmapRunner(python_command("print('done')"), timeout=10).run().strip() == "done"
+
+
+def wait_until_started(nmap_runner, limit=5.0):
+    deadline = time.monotonic() + limit
+    while nmap_runner._process is None:
+        assert time.monotonic() < deadline, "process did not start"
+        time.sleep(0.01)
+
+
+def test_cancel_stops_a_running_scan(python_as_nmap):
+    nmap_runner = NmapRunner(python_command("import time; time.sleep(30)"), timeout=60)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(nmap_runner.run)
+        wait_until_started(nmap_runner)
+
+        started = time.monotonic()
+        nmap_runner.cancel()
+
+        with pytest.raises(ScanCancelledError, match="Scan was cancelled"):
+            future.result(timeout=10)
+
+    assert time.monotonic() - started < 10
+    assert nmap_runner._process.poll() is not None
+
+
+def test_cancel_before_run_prevents_start(python_as_nmap):
+    nmap_runner = NmapRunner(python_command("print('should not run')"))
+    nmap_runner.cancel()
+
+    with pytest.raises(ScanCancelledError, match="before it started"):
+        nmap_runner.run()
+
+    assert nmap_runner._process is None
+
+
+def test_cancel_after_finish_is_harmless(python_as_nmap):
+    nmap_runner = NmapRunner(python_command("print('done')"))
+    assert nmap_runner.run().strip() == "done"
+
+    nmap_runner.cancel()
