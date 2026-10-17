@@ -20,3 +20,28 @@ class InvalidPortsError(InvalidScanRequestError):
 
 class InsufficientPrivilegesError(InvalidScanRequestError):
     """Raised when a selected option needs root/administrator rights."""
+
+
+class NmapRunError(NetScopeError):
+    """Base class for problems while running the nmap process."""
+
+
+class NmapNotFoundError(NmapRunError):
+    """Raised when the nmap executable cannot be found on PATH."""
+
+
+class NmapExecutionError(NmapRunError):
+    """Raised when nmap exits with a non-zero return code."""
+
+    def __init__(self, returncode: int, stderr: str) -> None:
+        super().__init__(f"nmap exited with code {returncode}: {stderr}")
+        self.returncode = returncode
+        self.stderr = stderr
+
+
+class ScanTimeoutError(NmapRunError):
+    """Raised when a scan runs longer than its time limit."""
+
+
+class ScanCancelledError(NmapRunError):
+    """Raised when a running scan is cancelled by the user."""
