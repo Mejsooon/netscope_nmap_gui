@@ -1,6 +1,7 @@
+from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, IPvAnyAddress
+from pydantic import BaseModel, ConfigDict, Field, IPvAnyAddress, model_validator
 
 Protocol = Literal["tcp", "udp", "sctp", "ip"]
 PortState = Literal["open", "closed", "filtered", "unfiltered", "open|filtered", "closed|filtered"]
@@ -37,3 +38,21 @@ class HostResult(NetScopeModel):
     hostnames: list[str] = Field(default_factory=list)
     ports: list[PortResult] = Field(default_factory=list)
     extra_ports: list[ExtraPortsResult] = Field(default_factory=list)
+
+
+class ScanResult(NetScopeModel):
+    nmap_version: str
+    args: str
+    started_at: datetime
+    finished_at: datetime | None = None
+    elapsed_seconds: float | None = Field(default=None, ge=0)
+    hosts_up: int = Field(ge=0)
+    hosts_down: int = Field(ge=0)
+    hosts_total: int = Field(ge=0)
+    hosts: list[HostResult] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def check_host_counts(self) -> "ScanResult":
+        if self.hosts_up + self.hosts_down != self.hosts_total:
+            raise ValueError("hosts_up + hosts_down must equal hosts_total")
+        return self
