@@ -6,7 +6,7 @@ from defusedxml.ElementTree import fromstring
 from pydantic import ValidationError
 
 from app.core.exceptions import NmapParseError
-from app.schemas.scan import HostResult, ScanResult
+from app.schemas.scan import HostResult, PortResult, ScanResult
 
 
 def parse_scan(xml_text: str) -> ScanResult:
@@ -59,6 +59,20 @@ def _parse_host(host: Element) -> HostResult:
         mac=mac_element.get("addr") if mac_element is not None else None,
         mac_vendor=mac_element.get("vendor") if mac_element is not None else None,
         hostnames=_parse_hostnames(host),
+        ports=[_parse_port(port) for port in host.findall("ports/port")],
+    )
+
+
+def _parse_port(port: Element) -> PortResult:
+    return PortResult(
+        port=port.get("portid"),
+        protocol=port.get("protocol"),
+        state=_attr(port, "state", "state"),
+        reason=_attr(port, "state", "reason"),
+        service_name=_attr(port, "service", "name"),
+        product=_attr(port, "service", "product"),
+        version=_attr(port, "service", "version"),
+        extra_info=_attr(port, "service", "extrainfo"),
     )
 
 
