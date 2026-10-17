@@ -5,6 +5,7 @@ from app.core.exceptions import (
     InvalidTargetError,
     NmapExecutionError,
     NmapNotFoundError,
+    ScanAlreadyFinishedError,
     ScanNotFoundError,
 )
 from app.schemas.scan import ScanRequest
@@ -135,3 +136,75 @@ def test_list_returns_newest_first(make_manager):
 def test_unknown_scan_id_raises_not_found(make_manager):
     with pytest.raises(ScanNotFoundError):
         make_manager().get("f" * 32)
+
+
+def test_cancel_running_scan(make_manager):
+    factory = FakeRunnerFactory(block=True)
+    manager = make_manager(factory)
+    job = manager.submit(ScanRequest(target="192.168.1.1"))
+    factory.runners[0].started.wait(timeout=5)
+
+    manager.cancel(job.id)
+
+    cancelled = wait_for_status(manager, job.id, "cancelled")
+    assert factory.runners[0].cancelled.is_set()
+    assert cancelled.finished_at is not None
+    assert cancelled.result is None
+
+
+def test_cancel_queued_scan_never_starts_it(make_manager):
+    factory = FakeRunnerFactory(block=True)
+    manager = make_manager(factory, max_workers=1)
+    busy = manager.submit(ScanRequest(target="192.168.1.1"))
+    queued = manager.submit(ScanRequest(target="192.168.1.2"))
+    factory.runners[0].started.wait(timeout=5)
+
+    assert manager.cancel(queued.id).status == "cancelled"
+
+    factory.runners[0].release()
+    wait_for_status(manager, busy.id, "done")
+    manager.shutdown()
+    assert not factory.runners[1].started.is_set()
+    assert manager.get(queued.id).status == "cancelled"
+
+
+@pytest.mark.parametrize("final_status, options", [
+    ("done", {}),
+    ("failed", {"error": NmapExecutionError(1, "boom")}),
+])
+def test_finished_scan_cannot_be_cancelled(make_manager, final_status, options):
+    manager = make_manager(FakeRunnerFactory(**options))
+    job = manager.submit(ScanRequest(target="192.168.1.1"))
+    wait_for_status(manager, job.id, final_status)
+
+    with pytest.raises(ScanAlreadyFinishedError, match=f"already finished \\({final_status}\\)"):
+        manager.cancel(job.id)
+
+
+def test_cancelling_twice_is_rejected(make_manager):
+    factory = FakeRunnerFactory(block=True)
+    manager = make_manager(factory)
+    job = manager.submit(ScanRequest(target="192.168.1.1"))
+    factory.runners[0].started.wait(timeout=5)
+
+    manager.cancel(job.id)
+    wait_for_status(manager, job.id, "cancelled")
+
+    with pytest.raises(ScanAlreadyFinishedError):
+        manager.cancel(job.id)
+
+
+def test_cancel_unknown_scan_raises_not_found(make_manager):
+    with pytest.raises(ScanNotFoundError):
+        make_manager().cancel("f" * 32)
+
+
+def test_shutdown_cancels_running_scans(make_manager):
+    factory = FakeRunnerFactory(block=True)
+    manager = make_manager(factory)
+    job = manager.submit(ScanRequest(target="192.168.1.1"))
+    factory.runners[0].started.wait(timeout=5)
+
+    manager.shutdown()
+
+    assert manager.get(job.id).status == "cancelled"

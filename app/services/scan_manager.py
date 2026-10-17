@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any
 
-from app.core.exceptions import NetScopeError, ScanCancelledError
+from app.core.exceptions import NetScopeError, ScanAlreadyFinishedError, ScanCancelledError
 from app.nmap.command_builder import build_command
 from app.nmap.runner import DEFAULT_TIMEOUT_SECONDS, NmapRunner, find_nmap
 from app.nmap.xml_parser import parse_scan
@@ -74,7 +74,24 @@ class ScanManager:
     def list(self) -> list[ScanJob]:
         return self._store.all()
 
+    def cancel(self, scan_id: str) -> ScanJob:
+        with self._lock:
+            job = self._store.get(scan_id)
+            if job.is_finished:
+                raise ScanAlreadyFinishedError(f"Scan {scan_id} has already finished ({job.status})")
+            runner = self._runners.get(scan_id)
+            if job.status == "queued":
+                job = self._store.update(scan_id, status="cancelled", finished_at=utc_now())
+
+        if runner is not None:
+            runner.cancel()
+        return job
+
     def shutdown(self) -> None:
+        with self._lock:
+            active = list(self._runners.values())
+        for runner in active:
+            runner.cancel()
         self._executor.shutdown(wait=True, cancel_futures=True)
 
     def _execute(self, scan_id: str) -> None:
