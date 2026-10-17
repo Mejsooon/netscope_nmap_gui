@@ -155,6 +155,30 @@ def test_extraports_are_not_listed_as_ports(edge):
     assert len(first.ports) + first.extra_ports[0].count == 1001
 
 
+INTERRUPTED_SCAN = """<nmaprun scanner="nmap" args="nmap -sT 10.0.0.0/30" start="1792173600" version="7.95">
+<host><status state="up"/><address addr="10.0.0.1" addrtype="ipv4"/></host>
+<host><status state="down"/><address addr="10.0.0.2" addrtype="ipv4"/></host>
+</nmaprun>"""
+
+
+def test_interrupted_scan_without_runstats_counts_hosts():
+    scan = parse_scan(INTERRUPTED_SCAN)
+
+    assert (scan.hosts_up, scan.hosts_down, scan.hosts_total) == (1, 1, 2)
+    assert scan.finished_at is None
+    assert scan.elapsed_seconds is None
+
+
+def test_runstats_take_priority_over_listed_hosts(load_fixture):
+    xml_text = load_fixture("scan_edge_cases.xml").replace(
+        '<hosts up="2" down="1" total="3"/>', '<hosts up="2" down="254" total="256"/>'
+    )
+    scan = parse_scan(xml_text)
+
+    assert len(scan.hosts) == 3
+    assert (scan.hosts_up, scan.hosts_down, scan.hosts_total) == (2, 254, 256)
+
+
 @pytest.mark.parametrize("xml_text", ["", "not xml at all", "<nmaprun><host>"])
 def test_invalid_xml_raises_parse_error(xml_text):
     with pytest.raises(NmapParseError, match="Invalid XML"):

@@ -32,17 +32,27 @@ def _parse_root(xml_text: str) -> Element:
 
 
 def _build_scan_result(root: Element, hosts: list[HostResult]) -> ScanResult:
+    hosts_up, hosts_down, hosts_total = _host_counts(root, hosts)
     return ScanResult(
         nmap_version=root.get("version"),
         args=root.get("args"),
         started_at=_timestamp(root.get("start")),
         finished_at=_timestamp(_attr(root, "runstats/finished", "time")),
         elapsed_seconds=_attr(root, "runstats/finished", "elapsed"),
-        hosts_up=_attr(root, "runstats/hosts", "up"),
-        hosts_down=_attr(root, "runstats/hosts", "down"),
-        hosts_total=_attr(root, "runstats/hosts", "total"),
+        hosts_up=hosts_up,
+        hosts_down=hosts_down,
+        hosts_total=hosts_total,
         hosts=hosts,
     )
+
+
+def _host_counts(root: Element, hosts: list[HostResult]) -> tuple:
+    counts = root.find("runstats/hosts")
+    if counts is not None:
+        return counts.get("up"), counts.get("down"), counts.get("total")
+
+    hosts_up = sum(1 for host in hosts if host.state == "up")
+    return hosts_up, len(hosts) - hosts_up, len(hosts)
 
 
 def _parse_host(host: Element) -> HostResult:
