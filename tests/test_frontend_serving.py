@@ -27,3 +27,36 @@ def test_files_outside_the_frontend_folder_are_not_served(api, path):
 
     assert response.status_code == 404
     assert "create_app" not in response.text
+
+
+@pytest.mark.parametrize("path, content_type", [
+    ("/css/style.css", "text/css"),
+    ("/fonts/Geist-Variable.woff2", "font/woff2"),
+    ("/fonts/GeistMono-Variable.woff2", "font/woff2"),
+])
+def test_static_assets_are_served_with_correct_types(api, path, content_type):
+    response = api.client.get(path)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(content_type)
+
+
+def test_page_has_no_inline_scripts_or_styles(api):
+    html = api.client.get("/").text
+
+    assert "<style" not in html
+    assert 'style="' not in html
+    assert " on" + "click=" not in html.lower()
+    for line in html.splitlines():
+        if "<script" in line:
+            assert 'src="/js/' in line
+
+
+def test_page_loads_nothing_from_other_origins(api):
+    html = api.client.get("/").text
+    css = api.client.get("/css/style.css").text
+
+    for source in ('src="http', 'href="http'):
+        assert source not in html.replace('href="https://nmap.org/download"', "")
+    assert "url(http" not in css
+    assert "@import" not in css
