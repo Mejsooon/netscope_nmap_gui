@@ -421,6 +421,8 @@ legend.label { margin-bottom: 8px; }
 .history-item:hover { background: var(--surface-soft); }
 .history-item[aria-current="true"] { background: var(--surface-soft); }
 .history-target { font-family: var(--mono); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-item .status-dot { font-size: 13px; white-space: nowrap; }
+.table .status-dot { font-size: 13px; }
 .history-time { font-size: 12px; color: var(--muted); min-width: 48px; text-align: right; }
 
 /* ── Small screens ────────────────────────────────────────────────────── */
