@@ -1,5 +1,6 @@
 import { ApiError, api } from "./api.js";
 import { createScanForm } from "./form.js";
+import { renderHistory } from "./history.js";
 import { translateRequestError } from "./messages.js";
 import { formatDuration, isFinished, renderJob } from "./results.js";
 
@@ -9,6 +10,7 @@ const $ = (id) => document.getElementById(id);
 
 const current = { id: null, pollTimer: null, ticker: null };
 let scanForm = null;
+let scanFlags = {};
 
 async function loadStatus() {
   try {
@@ -46,6 +48,19 @@ function startTicker(job) {
   current.ticker = setInterval(tick, 1000);
 }
 
+async function refreshHistory() {
+  try {
+    const scans = await api.listScans();
+    renderHistory($("history-list"), $("history-empty"), scans, {
+      currentId: current.id,
+      flags: scanFlags,
+      onSelect: showScan,
+    });
+  } catch {
+    // History is secondary: a failed refresh keeps the previous list.
+  }
+}
+
 async function showScan(id) {
   stopTimers();
   current.id = id;
@@ -64,6 +79,7 @@ async function refreshCurrent() {
   if (id !== current.id) return;
 
   renderJob($("result"), job, handlers);
+  refreshHistory();
   if (isFinished(job)) {
     stopTimers();
   } else {
@@ -129,7 +145,9 @@ async function init() {
   loadStatus();
   const options = await api.options();
   $("root-status").textContent = options.is_root ? "uprawnienia root" : "bez uprawnień root";
+  scanFlags = Object.fromEntries(Object.entries(options.scan_types).map(([name, option]) => [name, option.flag]));
   scanForm = createScanForm($("scan-form"), options);
+  refreshHistory();
   $("scan-form").addEventListener("submit", submitScan);
 }
 
