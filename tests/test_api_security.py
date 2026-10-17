@@ -81,3 +81,47 @@ def test_no_cors_headers_are_sent(api):
     response = api.client.get("/options", headers={"Origin": "https://attacker.example"})
 
     assert "access-control-allow-origin" not in response.headers
+
+
+# ═════════ SECURITY HEADERS ═════════
+
+@pytest.mark.parametrize("path", ["/", "/health", "/options", "/scans"])
+def test_security_headers_are_on_every_response(api, path):
+    headers = api.client.get(path).headers
+
+    assert headers["x-content-type-options"] == "nosniff"
+    assert headers["x-frame-options"] == "DENY"
+    assert headers["referrer-policy"] == "no-referrer"
+    assert headers["cross-origin-opener-policy"] == "same-origin"
+
+
+def test_page_gets_a_strict_content_security_policy(api):
+    policy = api.client.get("/").headers["content-security-policy"]
+    directives = dict(part.split(" ", 1) for part in policy.split("; "))
+
+    assert directives["default-src"] == "'none'"
+    assert directives["script-src"] == "'self'"
+    assert directives["frame-ancestors"] == "'none'"
+    assert "unsafe-inline" not in policy
+    assert "unsafe-eval" not in policy
+    assert "http" not in policy
+
+
+def test_error_responses_also_get_headers(api):
+    response = api.client.get(f"/scans/{'f' * 32}")
+
+    assert response.status_code == 404
+    assert response.headers["x-frame-options"] == "DENY"
+    assert "content-security-policy" in response.headers
+
+
+def test_scan_data_is_never_cached(api):
+    assert api.client.get("/scans").headers["cache-control"] == "no-store"
+
+
+def test_swagger_docs_keep_working_without_the_strict_policy(api):
+    response = api.client.get("/docs")
+
+    assert response.status_code == 200
+    assert "content-security-policy" not in response.headers
+    assert response.headers["x-frame-options"] == "DENY"

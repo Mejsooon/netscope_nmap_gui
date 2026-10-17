@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.errors import register_error_handlers
 from app.api.routes import health, options, scans
-from app.api.security import OriginCheckMiddleware
+from app.api.security import OriginCheckMiddleware, SecurityHeadersMiddleware
 from app.services.scan_manager import ScanManager
 
 LOCAL_HOSTS = ("127.0.0.1", "localhost")
@@ -30,6 +30,7 @@ def create_app(scan_manager: ScanManager | None = None, *, allowed_hosts: tuple[
     app.include_router(scans.router)
     register_error_handlers(app)
     app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(OriginCheckMiddleware, allowed_hosts=allowed_hosts)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(allowed_hosts))
     return app
