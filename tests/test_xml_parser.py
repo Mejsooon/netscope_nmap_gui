@@ -202,3 +202,57 @@ def test_missing_required_attribute_is_rejected(load_fixture):
 
     with pytest.raises(NmapParseError, match="Unexpected nmap XML structure"):
         parse_scan(xml_text)
+
+
+def wrap_host(host_xml: str) -> str:
+    return (
+        '<nmaprun args="nmap" start="1792173600" version="7.95">'
+        f"{host_xml}"
+        '<runstats><hosts up="1" down="0" total="1"/></runstats>'
+        "</nmaprun>"
+    )
+
+
+VALID_HOST = (
+    '<host><status state="up"/><address addr="10.0.0.1" addrtype="ipv4"/>'
+    '<ports><port protocol="tcp" portid="22"><state state="open"/></port></ports></host>'
+)
+
+
+def test_wrap_host_helper_builds_valid_scan():
+    assert parse_scan(wrap_host(VALID_HOST)).hosts[0].ports[0].port == 22
+
+
+@pytest.mark.parametrize(
+    "old, new",
+    [
+        ('portid="22"', ""),
+        ('portid="22"', 'portid="70000"'),
+        ('portid="22"', 'portid="ssh"'),
+        ('<state state="open"/>', '<state state="weird"/>'),
+        ('<state state="open"/>', ""),
+        ('protocol="tcp"', 'protocol="icmp"'),
+        ('<status state="up"/>', ""),
+        ('addr="10.0.0.1"', 'addr="999.0.0.1"'),
+    ],
+    ids=[
+        "port-missing-portid",
+        "port-out-of-range",
+        "port-not-a-number",
+        "port-unknown-state",
+        "port-missing-state",
+        "port-unknown-protocol",
+        "host-missing-status",
+        "host-invalid-ip",
+    ],
+)
+def test_malformed_host_data_is_rejected(old, new):
+    with pytest.raises(NmapParseError, match="Unexpected nmap XML structure"):
+        parse_scan(wrap_host(VALID_HOST.replace(old, new)))
+
+
+def test_non_numeric_start_time_is_rejected():
+    xml_text = wrap_host(VALID_HOST).replace('start="1792173600"', 'start="yesterday"')
+
+    with pytest.raises(NmapParseError, match="Unexpected nmap XML structure"):
+        parse_scan(xml_text)
