@@ -46,3 +46,42 @@ def test_network_at_size_limit_is_accepted(target):
 def test_too_large_network_is_rejected(target):
     with pytest.raises(InvalidTargetError, match="the limit is 65536"):
         validate_target(target)
+
+
+@pytest.mark.parametrize(
+    "target, expected",
+    [
+        ("scanme.nmap.org", "scanme.nmap.org"),
+        ("router", "router"),
+        ("Router.LAN", "router.lan"),
+        ("my-server-01.example.com", "my-server-01.example.com"),
+    ],
+)
+def test_valid_hostnames(target, expected):
+    assert validate_target(target) == expected
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "bad_host.lan",
+        "host-.lan",
+        "host..lan",
+        "example.com.",
+        "a" * 64 + ".lan",
+        ("a" * 60 + ".") * 5 + "lan",
+        "1.2.3",
+    ],
+    ids=[
+        "underscore",
+        "label-ends-with-dash",
+        "empty-label",
+        "trailing-dot",
+        "label-longer-than-63",
+        "name-longer-than-253",
+        "numeric-last-label",
+    ],
+)
+def test_invalid_hostnames_are_rejected(target):
+    with pytest.raises(InvalidTargetError, match="hostname"):
+        validate_target(target)
