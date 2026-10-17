@@ -1,4 +1,5 @@
 import { api } from "./api.js";
+import { createScanForm } from "./form.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -20,4 +21,11 @@ async function loadStatus() {
   }
 }
 
-loadStatus();
+async function init() {
+  loadStatus();
+  const options = await api.options();
+  $("root-status").textContent = options.is_root ? "uprawnienia root" : "bez uprawnień root";
+  createScanForm($("scan-form"), options);
+}
+
+init();

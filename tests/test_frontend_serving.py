@@ -62,7 +62,7 @@ def test_page_loads_nothing_from_other_origins(api):
     assert "@import" not in css
 
 
-@pytest.mark.parametrize("module", ["app.js", "api.js", "dom.js", "messages.js"])
+@pytest.mark.parametrize("module", ["app.js", "api.js", "dom.js", "form.js", "messages.js"])
 def test_javascript_modules_are_served(api, module):
     response = api.client.get(f"/js/{module}")
 
@@ -70,7 +70,7 @@ def test_javascript_modules_are_served(api, module):
     assert response.headers["content-type"].startswith(("text/javascript", "application/javascript"))
 
 
-@pytest.mark.parametrize("module", ["app.js", "api.js", "dom.js", "messages.js"])
+@pytest.mark.parametrize("module", ["app.js", "api.js", "dom.js", "form.js", "messages.js"])
 def test_javascript_never_writes_html_strings(api, module):
     source = api.client.get(f"/js/{module}").text
 
