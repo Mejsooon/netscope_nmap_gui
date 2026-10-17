@@ -51,3 +51,17 @@ def test_scan_request_rejects_invalid_values(field, value):
 def test_scan_request_rejects_unknown_fields():
     with pytest.raises(ValidationError):
         ScanRequest(target="192.168.1.1", extra_args="--script=vuln")
+
+
+def test_ping_scan_alone_is_valid():
+    assert ScanRequest(target="192.168.1.0/24", scan_type="ping").scan_type == "ping"
+
+
+@pytest.mark.parametrize(
+    "conflict",
+    [{"ports": "22"}, {"service_detection": True}, {"os_detection": True}],
+    ids=["ports", "service-detection", "os-detection"],
+)
+def test_ping_scan_rejects_port_level_options(conflict):
+    with pytest.raises(ValidationError, match="ping scan only discovers hosts"):
+        ScanRequest(target="192.168.1.0/24", scan_type="ping", **conflict)

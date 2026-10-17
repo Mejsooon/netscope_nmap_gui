@@ -23,6 +23,12 @@ class ScanRequest(NetScopeModel):
     os_detection: bool = False
     timing: int = Field(default=3, ge=0, le=5)
 
+    @model_validator(mode="after")
+    def check_ping_scan_options(self) -> "ScanRequest":
+        if self.scan_type == "ping" and (self.ports or self.service_detection or self.os_detection):
+            raise ValueError("ping scan only discovers hosts: ports, service and OS detection are not allowed")
+        return self
+
 
 class PortResult(NetScopeModel):
     port: int = Field(ge=1, le=65535)
