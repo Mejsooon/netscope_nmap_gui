@@ -31,3 +31,9 @@ def list_scans(manager: ScanManager = Depends(get_scan_manager)) -> list[ScanSum
 @router.get("/{scan_id}", response_model=ScanJob)
 def get_scan(scan_id: ScanId, manager: ScanManager = Depends(get_scan_manager)) -> ScanJob:
     return manager.get(scan_id)
+
+
+@router.delete("/{scan_id}", status_code=status.HTTP_204_NO_CONTENT)
+def cancel_scan(scan_id: ScanId, manager: ScanManager = Depends(get_scan_manager)) -> Response:
+    manager.cancel(scan_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

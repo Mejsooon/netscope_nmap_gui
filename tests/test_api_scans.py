@@ -143,3 +143,36 @@ def test_list_scans_returns_summaries_newest_first(api):
 
 def test_list_is_empty_at_start(api):
     assert api.client.get("/scans").json() == []
+
+
+# ═════════ DELETE /scans/{id} ═════════
+
+def test_cancel_running_scan_returns_204(make_api):
+    context = make_api(FakeRunnerFactory(block=True))
+    scan_id = create(context)
+    context.factory.runners[0].started.wait(timeout=5)
+
+    response = context.client.delete(f"/scans/{scan_id}")
+
+    assert response.status_code == 204
+    assert response.content == b""
+    assert wait_for_status(context.manager, scan_id, "cancelled").result is None
+    assert context.client.get(f"/scans/{scan_id}").json()["status"] == "cancelled"
+
+
+def test_cancel_finished_scan_returns_409(api):
+    scan_id = create(api)
+    wait_for_status(api.manager, scan_id, "done")
+
+    response = api.client.delete(f"/scans/{scan_id}")
+
+    assert response.status_code == 409
+    assert "already finished (done)" in response.json()["detail"]
+
+
+def test_cancel_unknown_scan_returns_404(api):
+    assert api.client.delete(f"/scans/{'f' * 32}").status_code == 404
+
+
+def test_cancel_with_malformed_id_returns_422(api):
+    assert api.client.delete("/scans/not-a-scan-id").status_code == 422
