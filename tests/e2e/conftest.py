@@ -86,7 +86,9 @@ class BrowserErrors:
 
 
 @pytest.fixture
-def page(browser):
+def page(browser, make_live_app):
+    # make_live_app is requested here only to fix the teardown order: pytest tears
+    # fixtures down in reverse, so the page closes BEFORE its server stops.
     context = browser.new_context(locale="pl-PL")
     page = context.new_page()
     errors = BrowserErrors()
@@ -94,5 +96,6 @@ def page(browser):
     page.on("pageerror", lambda error: errors.messages.append(str(error)))
     page.browser_errors = errors
     yield page
+    page.unroute_all(behavior="ignoreErrors")
     context.close()
     assert errors.unexpected() == [], f"browser errors: {errors.unexpected()}"
