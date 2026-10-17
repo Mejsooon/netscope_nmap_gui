@@ -45,3 +45,15 @@ class ScanTimeoutError(NmapRunError):
 
 class ScanCancelledError(NmapRunError):
     """Raised when a running scan is cancelled by the user."""
+
+
+class ScanJobError(NetScopeError):
+    """Base class for errors about stored scan jobs."""
+
+
+class ScanNotFoundError(ScanJobError):
+    """Raised when no scan job has the requested id."""
+
+
+class ScanAlreadyFinishedError(ScanJobError):
+    """Raised when an action needs a running scan, but the scan has already finished."""

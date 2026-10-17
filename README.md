@@ -12,7 +12,7 @@ Lokalna aplikacja (FastAPI + przeglądarka), która dodaje interaktywne GUI do n
 | 1 | Parser XML | gotowe |
 | 2 | Builder (allowlista + walidacja) | gotowe |
 | 3 | Runner (subprocess) | gotowe |
-| 4 | API | — |
+| 4 | API | gotowe |
 | 5 | Frontend | — |
 | 6 | Reguły ostrzeżeń | — |
 | 7 | AI | — |
@@ -65,6 +65,32 @@ result = run_scan(ScanRequest(target="scanme.nmap.org", ports="22,80"), timeout=
 - `NmapRunner.cancel()` z innego wątku przerywa skan → `ScanCancelledError`
 - kod wyjścia ≠ 0 → `NmapExecutionError` ze skróconym stderr
 - brak nmapa → `NmapNotFoundError`
+
+## API
+
+```bash
+python -m app          # http://127.0.0.1:8000, dokumentacja: http://127.0.0.1:8000/docs
+```
+
+| Metoda | Ścieżka | Odpowiedź |
+|---|---|---|
+| GET | `/health` | 200 — nmap jest zainstalowany / 503 — brak nmapa |
+| GET | `/options` | katalog opcji dla formularza (`available` zależy od uprawnień) |
+| POST | `/scans` | 202 + `id` i nagłówek `Location` / 400 zły cel, porty, brak roota / 422 zły JSON / 503 brak nmapa |
+| GET | `/scans` | historia skanów (bez pełnych wyników) |
+| GET | `/scans/{id}` | status (`queued`, `running`, `done`, `failed`, `cancelled`) i wynik |
+| DELETE | `/scans/{id}` | 204 anulowano / 404 / 409 skan już zakończony |
+
+Skany działają w tle (maks. 2 naraz), frontend odpytuje `GET /scans/{id}` o status.
+Wyniki są przechowywane w pamięci — znikają po restarcie serwera.
+
+Zabezpieczenia API działającego lokalnie:
+
+- serwer nasłuchuje tylko na `127.0.0.1` — niedostępny z innych komputerów w sieci
+- tylko nagłówek `Host` równy `127.0.0.1` lub `localhost` (ochrona przed DNS rebinding)
+- `POST` i `DELETE` z nagłówkiem `Origin` innej strony → 403 (ochrona przed CSRF)
+- treść żądania musi być JSON-em — formularz HTML z innej strony nie uruchomi skanu
+- brak nagłówków CORS — inna strona nie odczyta odpowiedzi API
 
 ## Uruchomienie testów
 

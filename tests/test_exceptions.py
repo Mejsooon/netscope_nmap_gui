@@ -10,7 +10,10 @@ from app.core.exceptions import (
     NmapNotFoundError,
     NmapParseError,
     NmapRunError,
+    ScanAlreadyFinishedError,
     ScanCancelledError,
+    ScanJobError,
+    ScanNotFoundError,
     ScanTimeoutError,
 )
 
@@ -43,3 +46,10 @@ def test_execution_error_keeps_return_code_and_stderr():
     assert error.returncode == 1
     assert error.stderr == "Failed to resolve \"nosuchhost\"."
     assert str(error) == "nmap exited with code 1: Failed to resolve \"nosuchhost\"."
+
+
+@pytest.mark.parametrize("error_class", [ScanNotFoundError, ScanAlreadyFinishedError])
+def test_job_errors_share_one_base_class(error_class):
+    assert issubclass(error_class, ScanJobError)
+    assert issubclass(error_class, NetScopeError)
+    assert not issubclass(error_class, InvalidScanRequestError)
