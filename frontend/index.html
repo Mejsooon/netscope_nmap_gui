@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NetScope</title>
+<link rel="stylesheet" href="/css/style.css">
+<script type="module" src="/js/app.js"></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="brand-mark" width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+      <circle cx="14" cy="14" r="12" stroke="currentColor" stroke-width="1.6"></circle>
+      <circle cx="14" cy="14" r="6.5" stroke="currentColor" stroke-width="1.6"></circle>
+      <circle class="brand-dot" cx="14" cy="14" r="1.8"></circle>
+    </svg>
+    <span class="brand-name">netscope</span>
+    <span class="badge">SOFT</span>
+  </div>
+  <div class="topbar-status">
+    <span id="nmap-status" class="status-dot status-dot--muted">sprawdzanie nmapa…</span>
+    <span id="root-status"></span>
+    <button type="button" class="icon-button" aria-label="Ustawienia — dostępne w wersji PRO" title="Ustawienia — wkrótce" disabled>
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+        <circle cx="9" cy="9" r="2.6" stroke="currentColor" stroke-width="1.4"></circle>
+        <path d="M9 1.8v2.1M9 14.1v2.1M1.8 9h2.1M14.1 9h2.1M3.9 3.9l1.5 1.5M12.6 12.6l1.5 1.5M3.9 14.1l1.5-1.5M12.6 5.4l1.5-1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></path>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<div id="nmap-missing" class="card banner" hidden>
+  <div class="banner-text">
+    <h2 class="card-title-sm">Nie znaleziono nmapa</h2>
+    <p class="muted-text">NetScope uruchamia nmapa zainstalowanego w systemie. Zainstaluj go i uruchom aplikację ponownie.</p>
+  </div>
+  <a class="button button--primary" href="https://nmap.org/download" target="_blank" rel="noopener noreferrer">Pobierz nmap</a>
+</div>
+
+<main class="layout">
+
+  <section class="card form-card" aria-labelledby="form-title">
+    <h2 id="form-title" class="card-title">Nowy skan</h2>
+
+    <form id="scan-form" class="form" novalidate>
+      <div class="field">
+        <label for="target" class="label">Cel</label>
+        <input id="target" name="target" class="input input--mono" value="scanme.nmap.org"
+               spellcheck="false" autocomplete="off" aria-describedby="target-hint target-error" required>
+        <span id="target-hint" class="hint">Adres IP, sieć CIDR (maks. /16) albo hostname</span>
+        <span id="target-error" class="field-error" hidden></span>
+      </div>
+
+      <fieldset class="fieldset">
+        <legend class="label">Typ skanu</legend>
+        <div id="scan-types" class="option-grid"></div>
+      </fieldset>
+
+      <fieldset class="fieldset">
+        <legend class="label">Wykrywanie</legend>
+        <div id="detection" class="switch-list"></div>
+      </fieldset>
+
+      <div class="field">
+        <label for="ports" class="label">Porty</label>
+        <input id="ports" name="ports" class="input input--mono" placeholder="domyślnie 1000 najpopularniejszych"
+               spellcheck="false" autocomplete="off" aria-describedby="ports-error">
+        <div id="port-presets" class="chips"></div>
+        <span id="ports-error" class="field-error" hidden></span>
+      </div>
+
+      <fieldset class="fieldset">
+        <legend class="label">Szybkość</legend>
+        <div id="timing" class="segmented"></div>
+        <span id="timing-hint" class="hint"></span>
+      </fieldset>
+
+      <div class="field">
+        <span class="label" id="command-label">Komenda</span>
+        <code id="command" class="code-block" aria-labelledby="command-label"></code>
+      </div>
+
+      <p id="form-error" class="form-error" role="alert" hidden></p>
+
+      <button id="run" type="submit" class="button button--primary button--large">
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3.5 2.2v9.6L11.5 7z" fill="currentColor"></path></svg>
+        <span id="run-label">Uruchom skan</span>
+      </button>
+    </form>
+  </section>
+
+  <div class="content">
+    <section id="result" class="card result-card" aria-live="polite" aria-labelledby="result-title">
+      <div class="empty-state">
+        <h2 id="result-title" class="card-title-sm">Brak wyników</h2>
+        <p class="muted-text">Wybierz cel i opcje po lewej, a potem uruchom skan. Skanuj tylko urządzenia, do których masz uprawnienia, albo scanme.nmap.org.</p>
+      </div>
+    </section>
+
+    <section class="card history-card" aria-labelledby="history-title">
+      <div class="history-header">
+        <h2 id="history-title" class="card-title-sm">Historia</h2>
+        <span class="hint">przechowywana do restartu serwera</span>
+      </div>
+      <ul id="history-list" class="history-list"></ul>
+      <p id="history-empty" class="hint history-empty">Tu pojawią się Twoje skany.</p>
+    </section>
+  </div>
+
+</main>
+</body>
+</html>

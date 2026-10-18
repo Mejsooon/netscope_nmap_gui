@@ -13,7 +13,7 @@ Lokalna aplikacja (FastAPI + przeglądarka), która dodaje interaktywne GUI do n
 | 2 | Builder (allowlista + walidacja) | gotowe |
 | 3 | Runner (subprocess) | gotowe |
 | 4 | API | gotowe |
-| 5 | Frontend | — |
+| 5 | Frontend | gotowe |
 | 6 | Reguły ostrzeżeń | — |
 | 7 | AI | — |
 | 8 | Desktop | — |
@@ -69,7 +69,7 @@ result = run_scan(ScanRequest(target="scanme.nmap.org", ports="22,80"), timeout=
 ## API
 
 ```bash
-python -m app          # http://127.0.0.1:8000, dokumentacja: http://127.0.0.1:8000/docs
+python -m app          # http://127.0.0.1:8000 — interfejs NetScope, dokumentacja API: /docs
 ```
 
 | Metoda | Ścieżka | Odpowiedź |
@@ -92,12 +92,30 @@ Zabezpieczenia API działającego lokalnie:
 - treść żądania musi być JSON-em — formularz HTML z innej strony nie uruchomi skanu
 - brak nagłówków CORS — inna strona nie odczyta odpowiedzi API
 
+## Frontend
+
+Czysty HTML, CSS i JavaScript (moduły ES) w `frontend/`, serwowany przez FastAPI pod tym samym adresem co API.
+
+| Plik | Zadanie |
+|---|---|
+| `js/app.js` | start strony, wysyłanie skanu, odpytywanie statusu co 2 s, anulowanie |
+| `js/form.js` | formularz budowany z `GET /options`, podgląd komendy nmapa |
+| `js/results.js` | widoki stanów skanu i tabela wyników |
+| `js/history.js` | historia skanów |
+| `js/api.js` | klient API (`fetch`) |
+| `js/dom.js` | tworzenie elementów tylko przez `createElement` i `textContent` |
+| `js/messages.js` | polskie komunikaty dla błędów z API |
+
+Dane ze skanu pochodzą od skanowanych urządzeń, więc frontend nigdy nie wstawia ich jako HTML,
+a nagłówek Content-Security-Policy blokuje skrypty inline i zasoby spoza `127.0.0.1`.
+Kroje Geist są dołączone lokalnie (`frontend/fonts`, licencja OFL).
+
 ## Uruchomienie testów
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 pytest
 ```
 
@@ -108,6 +126,13 @@ Testy integracyjne na prawdziwym nmapie (wymagają zainstalowanego nmapa i dost�
 
 ```bash
 pytest -m integration
+```
+
+Testy frontendu w prawdziwej przeglądarce (Playwright + Chromium, bez nmapa):
+
+```bash
+playwright install chromium    # jednorazowo
+pytest -m e2e
 ```
 
 ## Zasady
